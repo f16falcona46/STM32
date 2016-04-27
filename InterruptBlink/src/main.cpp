@@ -4,6 +4,9 @@
 #include "stm32l1xx_syscfg.h"
 #include "stm32l100c_discovery.h"
 
+#include <vector>
+#include <functional>
+
 volatile static int count = 0;
 
 void delay_cyc(unsigned int count) {
@@ -64,5 +67,6 @@ int main() {
 	nvic.NVIC_IRQChannelSubPriority = 0x00;
 	nvic.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&nvic);
+
 	while(1);
 }

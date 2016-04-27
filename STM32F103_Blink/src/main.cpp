@@ -14,7 +14,7 @@ int main() {
 
 	GPIO_InitTypeDef gpio;
 	GPIO_StructInit(&gpio);
-	gpio.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9;
+	gpio.GPIO_Pin = GPIO_Pin_13;
 	gpio.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_Init(GPIOC, &gpio);
 
