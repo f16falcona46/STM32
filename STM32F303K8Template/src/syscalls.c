@@ -111,6 +111,7 @@ int _write(int file, char *ptr, int len)
 	return len;
 }
 
+/*
 caddr_t _sbrk(int incr)
 {
 	extern char end asm("end");
@@ -133,6 +134,7 @@ caddr_t _sbrk(int incr)
 
 	return (caddr_t) prev_heap_end;
 }
+*/
 
 int _close(int file)
 {
