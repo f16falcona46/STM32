@@ -19,7 +19,7 @@ typedef struct CPU_State_s {
 	uint8_t sp;
 	uint16_t pc;
 	uint8_t cc;
-	volatile uint8_t* (*func_to_get_mem)(struct CPU_State_s*, uint16_t);
+	volatile uint8_t* (*func_to_get_byte_ptr_from_mem)(struct CPU_State_s*, uint16_t);
 	uint8_t* rom;
 	volatile uint8_t* ram;
 } CPU_State;
@@ -52,22 +52,22 @@ void update_pins(CPU_State* state) {
 	GPIO_InitTypeDef gpio;
 	gpio.GPIO_Mode = GPIO_Mode_OUT;
 	gpio.GPIO_OType = GPIO_OType_PP;
-	gpio.GPIO_Pin = map_pins(*(state->func_to_get_mem)(state, 0xfd)); //pa_dr
+	gpio.GPIO_Pin = map_pins(*(state->func_to_get_byte_ptr_from_mem)(state, 0xfd)); //pa_dr
 	gpio.GPIO_Speed = GPIO_Speed_2MHz;
 	GPIO_Init(GPIOA, &gpio);
 
 	gpio.GPIO_Mode = GPIO_Mode_IN;
 	gpio.GPIO_OType = GPIO_OType_PP;
-	gpio.GPIO_Pin = map_pins(~*(state->func_to_get_mem)(state, 0xfd)); //pa_dr
+	gpio.GPIO_Pin = map_pins(~*(state->func_to_get_byte_ptr_from_mem)(state, 0xfd)); //pa_dr
 	gpio.GPIO_Speed = GPIO_Speed_2MHz;
 	GPIO_Init(GPIOA, &gpio);
 
-	GPIO_Write(GPIOA, map_pins(*(state->func_to_get_mem)(state, 0xff))); //pa_or
+	GPIO_Write(GPIOA, map_pins(*(state->func_to_get_byte_ptr_from_mem)(state, 0xff))); //pa_or
 
-	*(state->func_to_get_mem)(state, 0xfe) = map_input(GPIO_ReadInputData(GPIOA));
+	*(state->func_to_get_byte_ptr_from_mem)(state, 0xfe) = map_input(GPIO_ReadInputData(GPIOA));
 }
 
-volatile uint8_t* get_mem(CPU_State* state, uint16_t index) {
+volatile uint8_t* get_byte_ptr_from_mem(CPU_State* state, uint16_t index) {
 	if (index > 0x7fff) {
 		return state->rom + index - 0x8000;
 	}
@@ -98,7 +98,7 @@ void update_cc(CPU_State* state, uint8_t result) {
 }
 
 void simulate_step(CPU_State* state) {
-	uint8_t instruction = *(state->func_to_get_mem)(state, state->pc);
+	uint8_t instruction = *(state->func_to_get_byte_ptr_from_mem)(state, state->pc);
 	uint8_t prefix = (instruction&0xc0)>>6;
 	uint8_t pc_increment = 1;
 	switch (prefix) {
@@ -114,18 +114,18 @@ void simulate_step(CPU_State* state) {
 		break;
 		case 2: source = state->y; //source is y
 		break;
-		case 3: source = *(state->func_to_get_mem)(state, state->pc + 1); //source is immediate
+		case 3: source = *(state->func_to_get_byte_ptr_from_mem)(state, state->pc + 1); //source is immediate
 			++pc_increment;
 		break;
 		default: break;
 		}
-		if (source_loc&0x04) source = *(state->func_to_get_mem)(state, source); //source is indirect
+		if (source_loc&0x04) source = *(state->func_to_get_byte_ptr_from_mem)(state, source); //source is indirect
 		if (dest_loc&0x04) {
 			switch (dest_loc&0x03) {
-			case 0: *(state->func_to_get_mem)(state, state->a) = source; break; //dest is indirect a
-			case 1: *(state->func_to_get_mem)(state, state->x) = source; break; //dest is indirect x
-			case 2: *(state->func_to_get_mem)(state, state->y) = source; break; //dest is indirect y
-			case 3: *(state->func_to_get_mem)(state, *(state->func_to_get_mem)(state, state->pc + 1)) = source; ++pc_increment; break; //dest is indirect imm
+			case 0: *(state->func_to_get_byte_ptr_from_mem)(state, state->a) = source; break; //dest is indirect a
+			case 1: *(state->func_to_get_byte_ptr_from_mem)(state, state->x) = source; break; //dest is indirect x
+			case 2: *(state->func_to_get_byte_ptr_from_mem)(state, state->y) = source; break; //dest is indirect y
+			case 3: *(state->func_to_get_byte_ptr_from_mem)(state, *(state->func_to_get_byte_ptr_from_mem)(state, state->pc + 1)) = source; ++pc_increment; break; //dest is indirect imm
 			default: break;
 			}
 		}
@@ -179,7 +179,7 @@ void simulate_step(CPU_State* state) {
 		if (!(instruction&0x20)) timeToJump = !timeToJump;
 
 		if (timeToJump) {
-			state->pc = (*(state->func_to_get_mem)(state, state->pc+1)<<8)|(*(state->func_to_get_mem)(state, state->pc+2));
+			state->pc = (*(state->func_to_get_byte_ptr_from_mem)(state, state->pc+1)<<8)|(*(state->func_to_get_byte_ptr_from_mem)(state, state->pc+2));
 			pc_increment = 0;
 		}
 		else {
@@ -248,7 +248,7 @@ int main() {
 	state.sp = 0;
 	state.cc = 0;
 	state.pc = 0x8000;
-	state.func_to_get_mem = get_mem;
+	state.func_to_get_byte_ptr_from_mem = get_byte_ptr_from_mem;
 	state.rom = const_cast<uint8_t*>(rom);
 	state.ram = ram;
 	for (i = 0; i < 512; ++i) {
