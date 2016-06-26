@@ -1,4 +1,6 @@
 #include "stm32f30x.h"
+#include "stm32f30x_rcc.h"
+#include "stm32f30x_gpio.h"
 #include <stdint.h>
 
 const uint8_t rom[] = {
@@ -22,11 +24,47 @@ typedef struct CPU_State_s {
 	volatile uint8_t* ram;
 } CPU_State;
 
-void update_pins(CPU_State* state) {
-	uint8_t pa_or = *(state->func_to_get_mem)(state, 0xff);
-	uint8_t pa_dr = *(state->func_to_get_mem)(state, 0xfd);
+uint16_t map_pins(uint8_t input) {
+	return
+		(input&0x01)?0x0001:0|
+		(input&0x02)?0x0002:0|
+		(input&0x04)?0x0008:0|
+		(input&0x08)?0x0010:0|
+		(input&0x10)?0x0020:0|
+		(input&0x20)?0x0040:0|
+		(input&0x40)?0x0080:0|
+		(input&0x80)?0x0004:0;
+}
 
-	*(state->func_to_get_mem)(state, 0xfe) = 0;
+uint8_t map_input(uint16_t pins) {
+	return
+		(pins&0x0001)?0x01:0|
+		(pins&0x0002)?0x02:0|
+		(pins&0x0008)?0x04:0|
+		(pins&0x0010)?0x08:0|
+		(pins&0x0020)?0x10:0|
+		(pins&0x0040)?0x20:0|
+		(pins&0x0080)?0x40:0|
+		(pins&0x0004)?0x80:0;
+}
+
+void update_pins(CPU_State* state) {
+	GPIO_InitTypeDef gpio;
+	gpio.GPIO_Mode = GPIO_Mode_OUT;
+	gpio.GPIO_OType = GPIO_OType_PP;
+	gpio.GPIO_Pin = map_pins(*(state->func_to_get_mem)(state, 0xfd)); //pa_dr
+	gpio.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_Init(GPIOA, &gpio);
+
+	gpio.GPIO_Mode = GPIO_Mode_IN;
+	gpio.GPIO_OType = GPIO_OType_PP;
+	gpio.GPIO_Pin = map_pins(~*(state->func_to_get_mem)(state, 0xfd)); //pa_dr
+	gpio.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_Init(GPIOA, &gpio);
+
+	GPIO_Write(GPIOA, map_pins(*(state->func_to_get_mem)(state, 0xff))); //pa_or
+
+	*(state->func_to_get_mem)(state, 0xfe) = map_input(GPIO_ReadInputData(GPIOA));
 }
 
 volatile uint8_t* get_mem(CPU_State* state, uint16_t index) {
@@ -195,6 +233,12 @@ void simulate_step(CPU_State* state) {
 	state->pc += pc_increment;
 }
 
+void delay_cyc(unsigned int count) {
+	while (--count) {
+		asm volatile("nop");
+	}
+}
+
 int main() {
 	CPU_State state;
 	int i = 0;
@@ -210,8 +254,11 @@ int main() {
 	for (i = 0; i < 512; ++i) {
 		ram[i] = 0;
 	}
+	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+	GPIO_DeInit(GPIOA);
 	while (1) {
 		simulate_step(&state);
 		update_pins(&state);
+		delay_cyc(10000);
 	}
 }
