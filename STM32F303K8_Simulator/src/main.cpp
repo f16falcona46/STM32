@@ -5,7 +5,7 @@
 
 const uint8_t rom[] = {
 		0x07, 0xfd, 0x0b, 0x01, 0x51, 0x38, 0xfd, 0x13,
-		0x00, 0x03, 0x00, 0xc1, 0x83, 0x80, 0x0b, 0xc9,
+		0xf0,/*delay big*/ 0x03, 0xf0,/*delay little*/ 0xc1, 0x83, 0x80, 0x0b, 0xc9,
 		0x83, 0x80, 0x09, 0x07, 0xff, 0x13, 0x01, 0x62,
 		0x38, 0xff, 0xbf, 0x80, 0x07
 };
@@ -189,9 +189,8 @@ void simulate_step(CPU_State* state) {
 	break;
 	case 3: //arith, pushpop (not implemented yet)
 	{
-		switch (instruction&0x30) {
-		case 0: break;
-		case 1:
+		switch (instruction&0x20) {
+		case 0:
 		{
 			uint8_t source = 0;
 			uint8_t dest = 0;
@@ -207,7 +206,7 @@ void simulate_step(CPU_State* state) {
 			case 2: dest = state->y; break;
 			default: break;
 			}
-			switch ((instruction&0x30)>>4) {
+			switch ((instruction&0x10)>>4) {
 			case 0: dest += source; break;
 			case 1: dest -= source; break;
 			default: break;
@@ -221,8 +220,7 @@ void simulate_step(CPU_State* state) {
 			update_cc(state, dest);
 		}
 		break;
-		case 2:
-		break;
+		case 1: break;
 		default:
 		break;
 		}
@@ -259,6 +257,6 @@ int main() {
 	while (1) {
 		simulate_step(&state);
 		update_pins(&state);
-		delay_cyc(10000);
+		//delay_cyc(10);
 	}
 }
